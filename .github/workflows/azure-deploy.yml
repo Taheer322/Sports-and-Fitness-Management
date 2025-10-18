@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: your-app-name    # Replace with your Azure app name
+  AZURE_WEBAPP_NAME: Sport-and-fitness-management    # Replace with your Azure app name
   NODE_VERSION: '18.x'
 
 jobs:
