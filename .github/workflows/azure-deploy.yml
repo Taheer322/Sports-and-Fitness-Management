@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: Sport-and-fitness-management    # Replace with your Azure app name
+  AZURE_WEBAPP_NAME: fitness-and-gym-management  # Replace with your Azure app name
   NODE_VERSION: '18.x'
 
 jobs:
@@ -24,17 +24,17 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         cache-dependency-path: |
-          frontend/package-lock.json
+          front-end/package-lock.json
           backend/package-lock.json
 
     - name: Install frontend dependencies
       run: |
-        cd frontend
+        cd front-end
         npm ci
 
-    - name: Build frontend
+    - name: Build front-end
       run: |
-        cd frontend
+        cd front-end
         npm run build
       env:
         CI: false
@@ -48,7 +48,7 @@ jobs:
       run: |
         mkdir deploy
         cp -r backend/* deploy/
-        cp -r frontend/build deploy/
+        cp -r front-end/build deploy/
         cd deploy
         zip -r ../deployment.zip .
 
