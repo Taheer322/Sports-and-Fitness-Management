@@ -1,36 +1,48 @@
-name: Deploy to Azure App Service
+name: Build and Deploy to Azure App Service
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: fitness-and-gym-management  # Replace with your Azure app name
-  NODE_VERSION: '18.x'
+  AZURE_WEBAPP_NAME:  fitness-and-gym-management  # Change to your Azure app name
+  NODE_VERSION: '20.x'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
     - name: Set up Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: |
-          front-end/package-lock.json
-          backend/package-lock.json
 
-    - name: Install frontend dependencies
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        if [ -f package-lock.json ]; then
+          npm ci --production
+        else
+          npm install --production
+        fi
+
+    - name: Install front-end dependencies
       run: |
         cd front-end
-        npm ci
+        if [ -f package-lock.json ]; then
+          npm ci
+        else
+          npm install
+        fi
 
     - name: Build front-end
       run: |
@@ -39,22 +51,44 @@ jobs:
       env:
         CI: false
 
-    - name: Install backend dependencies
-      run: |
-        cd backend
-        npm ci --production
-
     - name: Prepare deployment package
       run: |
-        mkdir deploy
-        cp -r backend/* deploy/
-        cp -r front-end/build deploy/
-        cd deploy
-        zip -r ../deployment.zip .
+        mkdir -p deployment
+        cp -r backend/* deployment/
+        cp -r front-end/build deployment/
+        cd deployment
+        if [ -f package-lock.json ]; then
+          npm ci --production
+        else
+          npm install --production
+        fi
+
+    - name: Create web.config for Azure
+      run: |
+        cat > deployment/web.config << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <system.webServer>
+            <handlers>
+              <add name="iisnode" path="server.js" verb="*" modules="iisnode"/>
+            </handlers>
+            <rewrite>
+              <rules>
+                <rule name="DynamicContent">
+                  <conditions>
+                    <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True"/>
+                  </conditions>
+                  <action type="Rewrite" url="server.js"/>
+                </rule>
+              </rules>
+            </rewrite>
+          </system.webServer>
+        </configuration>
+        EOF
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        app-name:  fitness-and-gym-management
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: deployment.zip
+        package: ./deployment
