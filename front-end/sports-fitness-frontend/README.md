@@ -519,12 +519,7 @@ Beautiful gradient login page with sports imagery and role-based authentication.
 - Coach and facility management
 - Event organization tools
 
-## 👥 Team Members
 
-| Name | SRN | Role |
-|------|-----|------|
-| Piyush Sandeep Khandake | PES2UG23CS410 | Backend Developer |
-| Mohamed Taheer | PES2UG24CS814 | Frontend Developer |
 
 **Institution:** PES University  
 **Section:** G  
@@ -591,28 +586,10 @@ Contributions are welcome! Please follow these steps:
 
 ## 📝 License
 
-This project is created as part of academic coursework for DBMS Mini Project at PES University.
+This project is created as part of academic coursework for DBMS Mini Project at  University.
 
-## 📞 Contact
 
-For any queries or support, please contact:
 
-- **Mohamed Taheer** - mohammedtaheer303@gmail.com
-- **Piyush Sandeep Khandake** - (contact information)
-
----
-
-## 🙏 Acknowledgments
-
-- PES University for providing the platform and guidance
-- Faculty members for their valuable feedback
-- All team members for their dedicated efforts
-- Open-source community for the technologies used
-
----
-
-**Made with ❤️ by Team Sports & Fitness Management**
-
-**Project Type:** DBMS Mini Project  
-**Academic Year:** 2024-2025  
+**Project Type:** Database Management System Mini Project  
+**Academic Year:** 2025-2026 
 **Status:** ✅ Completed
