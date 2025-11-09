@@ -1,4 +1,4 @@
-name: Build and Deploy to Azure App Service
+name: Build and Test
 
 on:
   push:
@@ -10,35 +10,48 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: fitness-and-gym-management   # Your Azure app name
   NODE_VERSION: '20.x'
 
 jobs:
-  build-and-deploy:
+  # Stage 1: Install Dependencies
+  install:
+    name: 📦 Install Dependencies
     runs-on: ubuntu-latest
 
     steps:
-    # 1️⃣ Checkout code
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2️⃣ Setup Node.js
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
 
-    # 3️⃣ Install backend dependencies
+    - name: Cache backend node_modules
+      uses: actions/cache@v3
+      with:
+        path: backend/node_modules
+        key: ${{ runner.os }}-backend-${{ hashFiles('backend/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-backend-
+
+    - name: Cache frontend node_modules
+      uses: actions/cache@v3
+      with:
+        path: front-end/node_modules
+        key: ${{ runner.os }}-frontend-${{ hashFiles('front-end/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-frontend-
+
     - name: Install backend dependencies
       run: |
         cd backend
         if [ -f package-lock.json ]; then
-          npm ci --production
+          npm ci
         else
-          npm install --production
+          npm install
         fi
 
-    # 4️⃣ Install frontend dependencies
     - name: Install frontend dependencies
       run: |
         cd front-end
@@ -48,58 +61,96 @@ jobs:
           npm install
         fi
 
-    # 5️⃣ Build React frontend
-    - name: Build frontend
+    - name: Upload backend artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: backend-deps
+        path: backend/
+
+    - name: Upload frontend artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-deps
+        path: front-end/
+
+  # Stage 2: Build
+  build:
+    name: 🔨 Build Application
+    runs-on: ubuntu-latest
+    needs: install
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Download frontend artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-deps
+        path: front-end/
+
+    - name: Build React frontend
       run: |
         cd front-end
         npm run build
       env:
         CI: false
 
-    # 6️⃣ Prepare deployment package
-    - name: Prepare deployment package
-      run: |
-        mkdir -p deployment
-        # Copy backend files
-        cp -r backend/* deployment/
-        # Copy frontend build files (flattened)
-        cp -r front-end/build/* deployment/
-        cd deployment
-        # Install backend production dependencies
-        if [ -f package-lock.json ]; then
-          npm ci --production
-        else
-          npm install --production
-        fi
-
-    # 7️⃣ Create web.config for Azure
-    - name: Create web.config for Azure
-      run: |
-        cat > deployment/web.config << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <system.webServer>
-    <handlers>
-      <add name="iisnode" path="server.js" verb="*" modules="iisnode"/>
-    </handlers>
-    <rewrite>
-      <rules>
-        <rule name="DynamicContent">
-          <conditions>
-            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True"/>
-          </conditions>
-          <action type="Rewrite" url="server.js"/>
-        </rule>
-      </rules>
-    </rewrite>
-  </system.webServer>
-</configuration>
-EOF
-
-    # 8️⃣ Deploy to Azure
-    - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v2
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
       with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ./deployment
+        name: frontend-build
+        path: front-end/build/
+
+  # Stage 3: Test
+  test:
+    name: ✅ Run Tests
+    runs-on: ubuntu-latest
+    needs: [install, build]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Download backend artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: backend-deps
+        path: backend/
+
+    - name: Download frontend artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-deps
+        path: front-end/
+
+    - name: Download frontend build
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-build
+        path: front-end/build/
+
+    - name: Run backend tests
+      run: |
+        cd backend
+        npm test --if-present
+
+    - name: Run frontend tests
+      run: |
+        cd front-end
+        npm test --if-present -- --passWithNoTests
+      env:
+        CI: true
+
+    - name: Success message
+      run: echo "✅ All stages completed successfully!"
